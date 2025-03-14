@@ -1,0 +1,10 @@
+[package]
+name = "fastq-scan"
+version = "0.1.0"
+edition = "2024"
+
+description = "Fast and safe Q/C for FastQ files"
+
+[dependencies]
+clap = "4.5.32"  # Simplifies construction of the command line interface
+flate2 = "1.1.0"  # Can decompress gzipped file on the fly
