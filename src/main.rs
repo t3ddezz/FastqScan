@@ -2,7 +2,7 @@ use clap::{Arg, Command};
 use std::fs::File; 
 use std::io::Read; 
 use flate2::read::GzDecoder; 
-
+use std::io::{BufRead, BufReader};
 fn main() {
     let matches = Command::new("FastQScan") 
         .author("Leeroy Jenkins") 
@@ -17,7 +17,8 @@ fn main() {
     let r1_path = matches.get_one::<String>("read1").expect("Missing read1 file"); 
     let reader_r1 = open_fasta_file(r1_path); 
     
-    let (avg_qualities_r1, avg_quality_r1) = compute_quality_metrics(reader_r1);
+    let (avg_qualities_r1, avg_quality_r1) = average_base_quality(reader_r1);
+    let base_counts_r1 = count_base_composition(reader_r1);
 
     println!("Average per position: {:?}", avg_qualities_r1);
     println!("Average quality of all reads: {:.2}", avg_quality_r1);
@@ -29,9 +30,8 @@ fn open_fasta_file(path: &str) -> GzDecoder<File> {
     GzDecoder::new(file) // Entpackt die gz-Datei direkt beim Lesen 
 }
 
-fn average_base_quality<R: Read>(mut reader: R) -> (Vec<f64>, f64) { 
-    let mut buffer = String::new(); 
-    reader.read_to_string(&mut buffer).expect("Fehler beim Lesen der Datei"); 
+fn average_base_quality<R: Read>(reader: R) -> (Vec<f64>, f64) { 
+    let mut buffer = BufReader::new(reader);
     
     let mut total_quality: Vec<u64> = Vec::new(); 
     let mut read_count: u64 = 0; 
@@ -59,10 +59,42 @@ fn average_base_quality<R: Read>(mut reader: R) -> (Vec<f64>, f64) {
     } 
     
     // Durchschnitt pro Position berechnen
-    let avg_per_position = total_quality_per_pos.iter().map(|&sum| sum as f64 / read_count as f64).collect();
+    let avg_per_position = total_quality.iter().map(|&sum| sum as f64 / read_count as f64).collect();
 
     // Durchschnitt über alle Reads berechnen
     let avg_quality_all_reads = total_quality_sum as f64 / total_base_count as f64;
 
     (avg_per_position, avg_quality_all_reads)
+}
+
+fn count_base_composition<R: BufRead>(reader: &mut R) -> Vec<[u64; 5]> {
+    let mut base_counts: Vec<[u64; 5]> = Vec::new();
+    let mut line = String::new();
+    let mut line_index = 0;
+
+    while reader.read_line(&mut line).unwrap_or(0) > 0 {
+        let trimmed = line.trim_end();
+
+        if line_index % 4 == 1 {
+            for (pos, ch) in trimmed.chars().enumerate() {
+                let base_index = match ch {
+                    'A' | 'a' => 0,
+                    'C' | 'c' => 1,
+                    'G' | 'g' => 2,
+                    'T' | 't' => 3,
+                    'N' | 'n' => 4,
+                    _ => continue,
+                };
+                if pos >= base_counts.len() {
+                    base_counts.push([0; 5]);
+                }
+                base_counts[pos][base_index] += 1;
+            }
+        }
+
+        line.clear();
+        line_index += 1;
+    }
+
+    base_counts
 }
