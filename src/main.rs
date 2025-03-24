@@ -66,35 +66,48 @@ fn average_base_quality<R: Read>(reader: R) -> (Vec<f64>, f64) {
 
     (avg_per_position, avg_quality_all_reads)
 }
-
+// Funktion zur Zählung der Basenzusammensetzung (A, C, G, T, N) an jeder Position in Sequenzen aus einem FASTQ-Format
 fn count_base_composition<R: BufRead>(reader: &mut R) -> Vec<[u64; 5]> {
+    // Initialisiert einen Vektor für die Zählungen: 
+    // Für jede Position in den Sequenzen wird ein Array [A, C, G, T, N] gehalten
     let mut base_counts: Vec<[u64; 5]> = Vec::new();
     let mut line = String::new();
     let mut line_index = 0;
 
+    // Solange noch Zeilen gelesen werden können
+    // unwrap_or(0) damit kein panic 
     while reader.read_line(&mut line).unwrap_or(0) > 0 {
+        // Entfernt Zeilenumbruch am Ende der Zeile
         let trimmed = line.trim_end();
-
+        
         if line_index % 4 == 1 {
+            // Iteration über die Zeichen der Sequenz und deren Position
             for (pos, ch) in trimmed.chars().enumerate() {
+                // Bestimmen, welche Base es ist (Index: 0=A, 1=C, 2=G, 3=T, 4=N)
                 let base_index = match ch {
                     'A' | 'a' => 0,
                     'C' | 'c' => 1,
                     'G' | 'g' => 2,
                     'T' | 't' => 3,
                     'N' | 'n' => 4,
-                    _ => continue,
+                    _ => continue, // Ignoriert andere Zeichen
                 };
+
+                // Wenn die aktuelle Position noch nicht im Vektor existiert, erweitere ihn
                 if pos >= base_counts.len() {
-                    base_counts.push([0; 5]);
+                    base_counts.push([0; 5]); // Initialisiert Zählarray für neue Position
                 }
+
+                // Erhöhe den Zähler für die jeweilige Base an der aktuellen Position
                 base_counts[pos][base_index] += 1;
             }
         }
 
+        // Zeilenpuffer leeren für nächste Zeile
         line.clear();
         line_index += 1;
     }
 
     base_counts
 }
+
