@@ -20,3 +20,7 @@ target/
 # Perf data
 perf.data*
 flamegraph.svg
+
+output.json
+src/tests_d.rs
+src/function_junk.rs
